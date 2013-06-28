@@ -44,7 +44,7 @@ class CmdException(Exception):
     pass
 
 class CommandInterface:
-    def open(self, aport='/dev/tty.usbserial-ftCYPMYJ', abaudrate=115200) :
+    def open(self, aport='/dev/ttyAMA0', abaudrate=115200) :
         self.sp = serial.Serial(
             port=aport,
             baudrate=abaudrate,     # baudrate
@@ -81,14 +81,58 @@ class CommandInterface:
         time.sleep(0.1)
         self.sp.setDTR(1)
         time.sleep(0.5)
+		
+	def connect(self):
+		#print "connect_ACK"
+	    try:
+            ask = ord(self.sp.read())
+        except:
+            print "None"
+			return 0
+        else:
+            if ask == 0x79:
+                # ACK
+				print "ACK"
+                return 1
+            else:
+                if ask == 0x1F:
+                    # NACK
+					print "NACK"
+                    return 1
+                else:
+                    # Unknow responce
+                    print "NONE"
+					return 0
 
     def initChip(self):
         # Set boot
+		#print "initChip"
         self.sp.setRTS(0)
         self.reset()
-
-        self.sp.write("\x7F")       # Syncro
-        return self._wait_for_ask("Syncro")
+		#print "self.sp.write"
+		self.sp.write("\x7F")       # Syncro
+		#print "while0"
+		ack = self.connect()
+		while 1:
+		    #print "while1"
+			if ack == 1:
+			    return 1				
+			else:
+				self.sp.write("\x7F")
+				ack=self.connect()
+				
+		else:
+		    print "initChip1"
+		    return 1
+			
+		
+		#ack = connect_ACK()
+		#if ack == 1:
+		#    return 1
+		#else:
+		#	self.sp.write("\x7F")       # Syncro
+		##	time.sleep(0.1)
+		#	return 1
 
     def releaseChip(self):
         self.sp.setRTS(1)
@@ -326,6 +370,7 @@ def usage():
 if __name__ == "__main__":
     
     # Import Psyco if available
+	print "Start..."
     try:
         import psyco
         psyco.full()
@@ -334,7 +379,7 @@ if __name__ == "__main__":
         pass
 
     conf = {
-            'port': '/dev/tty.usbserial-ftCYPMYJ',
+            'port': '/dev/ttyAMA0',
             'baud': 115200,
             'address': 0x08000000,
             'erase': 0,
@@ -387,7 +432,9 @@ if __name__ == "__main__":
     mdebug(10, "Open port %(port)s, baud %(baud)d" % {'port':conf['port'], 'baud':conf['baud']})
     try:
         try:
+			print "cmd.initChip"
             cmd.initChip()
+			
         except:
             print "Can't init. Ensure that BOOT0 is enabled and reset device"
 
